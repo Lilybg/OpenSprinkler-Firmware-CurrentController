@@ -1,16 +1,7 @@
-
-// Include EEPROM-like API for FlashStorage
-#include <FlashAsEEPROM.h>
-
-//Includes for WIFI
-#include <WiFi101.h>
-#include <SPI.h>
-#include <RTCZero.h>
 #include <Timer5.h>
-RTCZero rtc; 
 
 //variables for flow rate calculation
-int flowPin = 7; //D7
+int flowPin = 19; //A5
 int val1 = 0;
 int val2 = 0;
 float freq = 0;
@@ -18,9 +9,8 @@ float avgFreq = 0;
 int dailyWaterUsage = 0;
 
 //variables for timer 
-#include "Timer5.h"
 
-int led = 6;
+int led = 13; //red LED
 volatile int count=0;
 
 long t = millis(); 
@@ -28,25 +18,22 @@ long t = millis();
 
 void setup() {
   pinMode(flowPin, INPUT);    //Initialize the pin reciving data from the flow sensor
-  EEPROM.write(0,dailyWaterUsage);
-  EEPROM.commit();
-
-    pinMode(led,OUTPUT);
+  pinMode(led,OUTPUT);
   //timer set up
   // debug output at 115200 baud
-	SerialUSB.begin(115200);
+	Serial.begin(115200);
 	//while (!SerialUSB) ;
 		
-	SerialUSB.println("starting");
+	Serial.println("starting");
 
     // define frequency of interrupt
 	MyTimer5.begin(1);  // 200=for toggle every 5msec
 
     // define the interrupt callback function
-    MyTimer5.attachInterrupt(Timer5_IRQ);
+  MyTimer5.attachInterrupt(Timer5_IRQ);
   
     // start the timer
-    MyTimer5.start();
+  MyTimer5.start();
 }
 
 void loop(){
@@ -68,6 +55,7 @@ void loop(){
             //calculates frequency
             if((val1!=0)&&(val2!=0)){
                 freq = 1/(val2 - val1);
+                freq = freq/2;
                 avgFreq = avgFreq + freq;
             }
         }
@@ -78,34 +66,13 @@ void loop(){
     //if there is a request from the OpenSprinkler,
     //send the avgFreq
     avgFreq = avgFreq/5;
-
-    //increase the daily water usage 
-
-    //code to store the daily water usage
-    /*
-        If the day is over,
-            dailyWaterUsage = dailyWaterUsage + EEPROM.read(0);
-            my_flash_store.write(dailyWaterUsage);
-            EEPROM.commit();
-            dailyWaterUsage = 0;
-
-        If its the last day of the month,
-            yearlyWaterUsage = yearlyWaterUsage + EEPROM.read(0);
-            store yearlyWaterUsage in the EEPROM
-            send an email with the value in EEPROM.read(0);
-    
-        If its the first day of the year,
-            send an email with the value in EEPROM.read(1);
-            yearlyWaterUsage = 0;
-    */
+    Serial.println(avgFreq);
 
 }
 
 // will be called by the MyTimer5 object
-// toggles LED state at pin 10
 void Timer5_IRQ(void) {
     static bool on = false;
-    
     count++;  // count number of toggles
     if (on == true) {
       on = false;
@@ -114,5 +81,4 @@ void Timer5_IRQ(void) {
       on = true;
         digitalWrite(led,HIGH);
     }
-
 }

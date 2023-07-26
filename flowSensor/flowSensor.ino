@@ -1,4 +1,13 @@
-#include <Timer5.h>
+#define LED_PIN 13
+
+#define CPU_HZ 48000000
+#define TIMER_PRESCALER_DIV 1024
+
+void startTimer(int frequencyHz);
+void setTimerFrequency(int frequencyHz);
+void TC3_Handler();
+
+bool isLEDOn = false;
 
 //variables for flow rate calculation
 int flowPin = 19; //A5
@@ -7,78 +16,44 @@ int val2 = 0;
 float freq = 0;
 float avgFreq = 0;
 int dailyWaterUsage = 0;
-
-//variables for timer 
-
-int led = 13; //red LED
 volatile int count=0;
 
-long t = millis(); 
+
+//adopted flow sensor code
+volatile int flow_frequency; // Measures flow sensor pulsesunsigned 
+
+int l_min; // Calculated litres/hour
+unsigned char flowsensor = 19; // Sensor Input
+unsigned long currentTime;
+unsigned long cloopTime;
+
+void flow (){ // Interrupt function
+   flow_frequency++;
+}
 
 
 void setup() {
-  pinMode(flowPin, INPUT);    //Initialize the pin reciving data from the flow sensor
-  pinMode(led,OUTPUT);
-  //timer set up
-  // debug output at 115200 baud
-	Serial.begin(115200);
-	//while (!SerialUSB) ;
-		
-	Serial.println("starting");
-
-    // define frequency of interrupt
-	MyTimer5.begin(1);  // 200=for toggle every 5msec
-
-    // define the interrupt callback function
-  MyTimer5.attachInterrupt(Timer5_IRQ);
-  
-    // start the timer
-  MyTimer5.start();
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(flowsensor, INPUT);
+  digitalWrite(flowsensor, HIGH); // Optional Internal Pull-Up
+  Serial.begin(9600);
+  attachInterrupt(digitalPinToInterrupt(A5), flow, RISING); // pin, ISR, mode
+  //sei(); // Enable interrupts
+  currentTime = millis();
+  cloopTime = currentTime;
 }
 
-void loop(){
-    //average the value over 5 samples
-    for(int i = 0; i < 5; i++){
-        while(freq == 0){
-
-            //waiting for the first pulse
-            if((digitalRead(flowPin) == HIGH)&&(val1==0)){
-                val1 = count;
-                while(digitalRead(flowPin) == HIGH){} //waits for the pulse to continue being HIGH
-            }
-            
-            //waiting for the second pulse
-            if((digitalRead(flowPin) == HIGH)&&(val1!=0)){
-                val2 = count;
-            }
-
-            //calculates frequency
-            if((val1!=0)&&(val2!=0)){
-                freq = 1/(val2 - val1);
-                freq = freq/2;
-                avgFreq = avgFreq + freq;
-            }
-        }
-
-        val1 = val2 = freq = 0;
-    }
-
-    //if there is a request from the OpenSprinkler,
-    //send the avgFreq
-    avgFreq = avgFreq/5;
-    Serial.println(avgFreq);
-
+void loop() {
+  currentTime = millis();// Every second, calculate and print litres/hour
+   if(currentTime >= (cloopTime + 1000))
+   {
+      cloopTime = currentTime; // Updates cloopTime
+      // Pulse frequency (Hz) = 5.05Q, Q is flow rate in L/min.
+      l_min = (flow_frequency  / 5.05); // (Pulse frequency x 60 min) / 7.5Q = flowrate in L/hour
+      flow_frequency = 0; // Reset Counter
+      Serial.print(l_min, DEC); // Print litres/hour
+      Serial.println(" L/min");
+   }
 }
 
-// will be called by the MyTimer5 object
-void Timer5_IRQ(void) {
-    static bool on = false;
-    count++;  // count number of toggles
-    if (on == true) {
-      on = false;
-        digitalWrite(led,LOW);
-    } else {
-      on = true;
-        digitalWrite(led,HIGH);
-    }
-}
+

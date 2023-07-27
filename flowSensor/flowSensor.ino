@@ -22,13 +22,16 @@ volatile int count=0;
 //adopted flow sensor code
 volatile int flow_frequency; // Measures flow sensor pulsesunsigned 
 
-int l_min; // Calculated litres/hour
+float l_min; // Calculated litres/hour
 unsigned char flowsensor = 19; // Sensor Input
 unsigned long currentTime;
 unsigned long cloopTime;
 
 void flow (){ // Interrupt function
-   flow_frequency++;
+   delay(20); //when tested this was at 20ms; there is a chance it is lower
+   if(digitalRead(flowsensor)){ //wait to see if the pulse is still high
+      flow_frequency++;
+   }
 }
 
 
@@ -49,10 +52,10 @@ void loop() {
    {
       cloopTime = currentTime; // Updates cloopTime
       // Pulse frequency (Hz) = 5.05Q, Q is flow rate in L/min.
-      l_min = (flow_frequency  / 5.05); // (Pulse frequency x 60 min) / 7.5Q = flowrate in L/hour
+      l_min = (flow_frequency * 60  / 13) * 0.264172; //gal/min
       flow_frequency = 0; // Reset Counter
-      Serial.print(l_min, DEC); // Print litres/hour
-      Serial.println(" L/min");
+      Serial.print(l_min, DEC); 
+      Serial.println(" gal/min");
    }
 }
 
